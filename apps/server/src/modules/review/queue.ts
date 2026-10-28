@@ -209,7 +209,11 @@ export function verifications(
   });
 }
 
-function unreviewedMessages(services: AppServices, profileId: string | undefined): ReviewMessage[] {
+export function unreviewedMessages(
+  services: AppServices,
+  profileId: string | undefined,
+  limit = MESSAGE_LIMIT,
+): ReviewMessage[] {
   const rows = services.db
     .select({
       message: messages,
@@ -227,7 +231,7 @@ function unreviewedMessages(services: AppServices, profileId: string | undefined
       and(eq(messages.reviewed, false), profileId ? eq(mailboxes.profileId, profileId) : undefined),
     )
     .orderBy(desc(messages.receivedAt), desc(sql`${messages}.rowid`))
-    .limit(MESSAGE_LIMIT)
+    .limit(limit)
     .all();
   return rows.map(({ message, reference, targetName, targetId, prediction }) => ({
     ...toMessageSummary(message),

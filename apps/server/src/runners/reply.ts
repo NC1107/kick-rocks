@@ -146,8 +146,8 @@ interface ApplyReplyInput {
   classification: ReplyClassification;
   confidence: number;
   correlation: "message_id" | "reference" | "sender_domain" | "manual" | null;
-  /** The classifier, or the person who classified it by hand. */
-  actor: Extract<RequestActor, "system" | "user">;
+  /** The classifier, or whoever classified it by hand: the person or an agent they gave the inbox. */
+  actor: Extract<RequestActor, "system" | "user" | "agent">;
   link: LinkOutcome | null;
   requestedFields: readonly string[];
   /** The links of a needs_form reply. The form among them is picked and checked here, whatever stored them. */
@@ -254,7 +254,7 @@ function pendingSends(services: AppServices, requestId: string): Task[] {
 function cancelTasks(
   services: AppServices,
   tasks: readonly Task[],
-  actor: Extract<RequestActor, "system" | "user">,
+  actor: Extract<RequestActor, "system" | "user" | "agent">,
 ): void {
   for (const task of tasks) services.taskQueue.cancel(task.id, actor);
 }

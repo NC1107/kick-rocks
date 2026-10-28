@@ -1,5 +1,7 @@
+import { messages } from "@kickrocks/db";
 import {
   BROWSER_TASK_KINDS,
+  MCP_MAIL_TEXT_LIMIT,
   MCP_TOOLS,
   type McpToolName,
   type TaskKind,
@@ -8,17 +10,22 @@ import {
 } from "@kickrocks/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { inArray } from "drizzle-orm";
 import { z } from "zod";
 import { AppError } from "../../core/errors.js";
 import { targetDetail } from "../../core/target-detail.js";
 import type { AppServices } from "../../services.js";
 import { createRecipeStore } from "../recipes/store.js";
+import { classifyByHand } from "../review/decisions.js";
+import { unreviewedMessages } from "../review/queue.js";
 import { createTaskOperations, MCP_CALLER } from "../worker-api/task-operations.js";
 
 type Input<N extends McpToolName> = z.output<(typeof MCP_TOOLS)[N]["input"]>;
 type Output<N extends McpToolName> = z.output<(typeof MCP_TOOLS)[N]["output"]>;
 
-type ToolHandlers = { [N in McpToolName]: (input: Input<N>) => Output<N> };
+type ToolHandlers = {
+  [N in McpToolName]: (input: Input<N>) => Output<N> | Promise<Output<N>>;
+};
 
 /** What list_tasks shows when no status is given: work that is waiting or in progress. */
 const OPEN_STATUSES: readonly TaskStatus[] = ["queued", "leased", "blocked"];
@@ -72,6 +79,35 @@ function toolHandlers(services: AppServices): ToolHandlers {
     },
 
     propose_recipe: ({ recipe, notes }) => ({ recipe: recipes.propose({ recipe, notes }) }),
+
+    list_mail({ limit }) {
+      const unsorted = unreviewedMessages(services, undefined, limit);
+      const texts = new Map(
+        unsorted.length === 0
+          ? []
+          : services.db
+              .select({ id: messages.id, text: messages.text })
+              .from(messages)
+              .where(
+                inArray(
+                  messages.id,
+                  unsorted.map((message) => message.id),
+                ),
+              )
+              .all()
+              .map((row) => [row.id, row.text] as const),
+      );
+      return {
+        messages: unsorted.map((message) => ({
+          ...message,
+          text: texts.get(message.id)?.slice(0, MCP_MAIL_TEXT_LIMIT) ?? null,
+        })),
+      };
+    },
+
+    classify_message: async ({ messageId, ...body }) => ({
+      message: await classifyByHand(services, messageId, body, "agent"),
+    }),
   };
 }
 
@@ -175,7 +211,7 @@ export function createMcpServer(services: AppServices, version: string): McpServ
           services.claimers.sawMcp(caller, { askedForWork: asksForAgentWork(name, input) });
         }
         try {
-          const output = tool.output.parse(handler(input)) as Record<string, unknown>;
+          const output = tool.output.parse(await handler(input)) as Record<string, unknown>;
           return {
             content: [{ type: "text", text: JSON.stringify(output) }],
             structuredContent: output,

@@ -15,6 +15,8 @@ describe("MCP_TOOLS", () => {
         "get_target",
         "get_recipe",
         "propose_recipe",
+        "list_mail",
+        "classify_message",
       ].sort(),
     );
   });
